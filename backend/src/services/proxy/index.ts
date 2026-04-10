@@ -41,10 +41,22 @@ export function startBuiltinProxy(): void {
     },
   });
 
-  const server = https.createServer({
-    key: fs.readFileSync(config.builtinProxy.sslKeyPath),
-    cert: fs.readFileSync(config.builtinProxy.sslCertPath),
-  });
+  const server = https.createServer(
+    {
+      key: fs.readFileSync(config.builtinProxy.sslKeyPath),
+      cert: fs.readFileSync(config.builtinProxy.sslCertPath),
+    },
+    (req, res) => {
+      // This endpoint is intentionally informational for browser access.
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(
+        JSON.stringify({
+          service: "vm-console-proxy",
+          message: "This endpoint is for VM console WebSocket proxying.",
+        }),
+      );
+    },
+  );
 
   server.on("upgrade", (req, socket, head) => {
     const parts = (req.url || "").split("/").filter(Boolean);

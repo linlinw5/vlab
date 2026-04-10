@@ -1,6 +1,5 @@
 import { Router, Request, Response } from "express";
 import {
-  getAllUsersByGroup,
   getPaginatedUsersByGroup,
   getUserById,
   createUser,
@@ -9,7 +8,6 @@ import {
   resetUserPasswords,
   enableVPN,
   disableVPN,
-  getAllGroups,
   getClonedVmsByUserId,
   deleteClonedVMByVmId,
   getGroupById,
@@ -64,17 +62,17 @@ async function cloneAssignedLabsForNewUser(userId: number, groupId: number, user
 // GET /api/users?groupId=x&page=1&pageSize=20
 router.get("/", requireAdmin, async (req: Request, res: Response) => {
   const { page, pageSize, offset } = parsePage(req.query as Record<string, unknown>);
-  const groupId = req.query.groupId ? parseInt(req.query.groupId as string) : undefined;
+  const groupId = req.query.groupId ? parseInt(req.query.groupId as string, 10) : undefined;
   logDebug("routes", "user_list", { message: "Request received", page, pageSize, groupId: groupId ?? null });
-  if (groupId) {
-    const result = await getPaginatedUsersByGroup(groupId, pageSize, offset);
-    logDebug("routes", "user_list", { message: "Done", groupId });
-    res.json(result);
-  } else {
-    const result = await getAllGroups(pageSize, offset);
-    logDebug("routes", "user_list", { message: "Done", groupId: null });
-    res.json(result);
+  if (!groupId || Number.isNaN(groupId)) {
+    logError("routes", "user_list", { message: "Missing or invalid groupId", groupId: groupId ?? null });
+    res.status(400).json({ message: "groupId is required" });
+    return;
   }
+
+  const result = await getPaginatedUsersByGroup(groupId, pageSize, offset);
+  logDebug("routes", "user_list", { message: "Done", groupId });
+  res.json(result);
 });
 
 // GET /api/users/:id
