@@ -1,0 +1,93 @@
+### VLab — ASA VPN Tests
+### Tests VPN provisioning via /api/users/vpn (POST/DELETE)
+### Internally SSH to Cisco ASA; responses stream ndjson
+### Run: npm run dev (port 8800)
+
+@base = http://localhost:8800
+@api  = {{base}}/api
+
+@adminEmail    = admin@vlab.com
+@adminPassword = admin123
+
+# Update these with real user IDs
+@userId  = 4
+@userId2 = 6
+
+
+###
+# ============================================================
+# AUTH
+# ============================================================
+
+### Login — admin
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+
+###
+# ============================================================
+# VPN — single user
+# ============================================================
+
+### Enable VPN (ASA: username <email> password <vpnPassword>)
+POST {{api}}/users/vpn
+Content-Type: application/json
+
+{
+  "userIds": [{{userId}}],
+  "vpnPassword": "VpnPass@456"
+}
+
+###
+
+### Disable VPN (ASA: no username <email>)
+DELETE {{api}}/users/vpn
+Content-Type: application/json
+
+{
+  "userIds": [{{userId}}]
+}
+
+
+###
+# ============================================================
+# VPN — batch users
+# ============================================================
+
+### Enable VPN for multiple users
+POST {{api}}/users/vpn
+Content-Type: application/json
+
+{
+  "userIds": [{{userId}}, {{userId2}}],
+  "vpnPassword": "BatchVpn@789"
+}
+
+###
+
+### Disable VPN for multiple users
+DELETE {{api}}/users/vpn
+Content-Type: application/json
+
+{
+  "userIds": [{{userId}}, {{userId2}}]
+}
+
+
+###
+# ============================================================
+# Verify VPN state in DB
+# ============================================================
+
+### Check single user VPN status (vpn_enable + vpn_password fields)
+GET {{api}}/users/{{userId}}
+
+###
+
+### List users in group to verify vpn_enable flags
+GET {{api}}/users?groupId=2&page=1&pageSize=20

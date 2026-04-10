@@ -1,0 +1,153 @@
+### VLab — Labs & Assignments API Tests
+### Covers: categories, labs, assignments (group + user)
+### Run: npm run dev (port 8800)
+
+@base = http://localhost:8800
+@api  = {{base}}/api
+
+@adminEmail    = admin@vlab.com
+@adminPassword = admin123
+
+# Update these after creating records
+@categoryId  = 1
+@labId       = 1
+@groupId     = 2
+@userId      = 3
+@assignId    = 1
+
+
+###
+# ============================================================
+# AUTH
+# ============================================================
+
+### Login — admin
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+
+###
+# ============================================================
+# CATEGORIES
+# ============================================================
+
+### List all categories
+GET {{api}}/labs/categories
+
+###
+
+### Create category
+POST {{api}}/labs/categories
+Content-Type: application/json
+
+{
+  "name": "路由交换"
+}
+
+###
+
+### Update category
+PUT {{api}}/labs/categories/{{categoryId}}
+Content-Type: application/json
+
+{
+  "name": "路由交换（更新）"
+}
+
+###
+
+### Delete category
+DELETE {{api}}/labs/categories/{{categoryId}}
+
+
+###
+# ============================================================
+# LABS
+# ============================================================
+
+### List all labs (admin sees all; regular user sees group's labs only)
+GET {{api}}/labs
+
+###
+
+### Get lab by ID
+GET {{api}}/labs/{{labId}}
+
+###
+
+### Create lab
+POST {{api}}/labs
+Content-Type: application/json
+
+{
+  "title": "Linux基础实验",
+  "description": "掌握Linux基本命令操作",
+  "link": "https://docs.example.com/linux-lab",
+  "categoryId": 1,
+  "vmIds": ["vm-13", "vm-15"]
+}
+
+###
+
+### Update lab
+PUT {{api}}/labs/{{labId}}
+Content-Type: application/json
+
+{
+  "title": "Linux基础实验（更新）",
+  "description": "更新描述",
+  "link": "https://docs.example.com/linux-lab-v2",
+  "categoryId": {{categoryId}},
+  "vmIds": ["vm-13", "vm-15"]
+}
+
+###
+
+### Delete lab (fails if active assignments exist)
+DELETE {{api}}/labs/{{labId}}
+
+
+###
+# ============================================================
+# ASSIGNMENTS — Lab <-> Group
+# ============================================================
+
+### List all assignments
+GET {{api}}/assign
+
+###
+
+### Assignments for a specific group
+GET {{api}}/assign/group/{{groupId}}
+
+###
+
+### Assign lab to group — creates assignment + clones VMs for all group members (streams ndjson)
+POST {{api}}/assign
+Content-Type: application/json
+
+{
+  "labId": {{labId}},
+  "groupId": {{groupId}}
+}
+
+###
+
+### Assign lab to a single user — clones VMs for that user only (streams ndjson)
+POST {{api}}/assign/user
+Content-Type: application/json
+
+{
+  "labId": {{labId}},
+  "userId": {{userId}}
+}
+
+###
+
+### Delete assignment — streams ndjson (powers off + deletes VMs, cleans DB)
+DELETE {{api}}/assign/{{assignId}}

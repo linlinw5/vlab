@@ -1,0 +1,38 @@
+### VLab — Cron Tasks API Tests
+### Covers: task list, toggle
+### Run: npm run dev (port 8800)
+
+@base = http://localhost:8800
+@api  = {{base}}/api
+
+@adminEmail    = admin@vlab.com
+@adminPassword = admin123
+
+
+###
+# ============================================================
+# AUTH
+# ============================================================
+
+### Login — admin
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+
+###
+# ============================================================
+# CRON TASKS
+# ============================================================
+
+### List all tasks and their state
+GET {{api}}/cron/tasks
+
+###
+
+### Toggle task: shutdown-vms (每天22:00关机)
+POST {{api}}/cron/tasks/shutdown-vms/toggle

@@ -1,0 +1,141 @@
+### VLab — Cloned VMs API Tests
+### Covers: my VMs, cloned VM list, power control, console ticket, manual clone, delete
+### Run: npm run dev (port 8800)
+
+@base = http://localhost:8800
+@api  = {{base}}/api
+
+@adminEmail    = admin@vlab.com
+@adminPassword = admin123
+
+# Update these after creating records
+@vmId    = vm-1020
+@userId  = 3
+@groupId = 2
+@labId   = 1
+
+
+###
+# ============================================================
+# AUTH
+# ============================================================
+
+### Login — admin
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+
+###
+# ============================================================
+# MY VMs (current logged-in user)
+# ============================================================
+
+### My VMs (paginated)
+GET {{api}}/vms/my?page=1&pageSize=20
+
+
+###
+# ============================================================
+# CLONED VMs (admin — various filters)
+# ============================================================
+
+### Cloned VMs by group + lab
+GET {{api}}/vms/cloned?groupId={{groupId}}&labId={{labId}}&page=1&pageSize=20
+
+###
+
+### Cloned VMs by group only
+GET {{api}}/vms/cloned?groupId={{groupId}}&page=1&pageSize=20
+
+###
+
+### Cloned VMs by lab only
+GET {{api}}/vms/cloned?labId={{labId}}&page=1&pageSize=20
+
+###
+
+### Cloned VMs by user
+GET {{api}}/vms/cloned?userId={{userId}}&page=1&pageSize=20
+
+
+###
+# ============================================================
+# POWER CONTROL
+# ============================================================
+
+### Get VM power state
+GET {{api}}/vms/{{vmId}}/power
+
+###
+
+### Start VM
+POST {{api}}/vms/{{vmId}}/power
+Content-Type: application/json
+
+{
+  "action": "start"
+}
+
+###
+
+### Stop VM
+POST {{api}}/vms/{{vmId}}/power
+Content-Type: application/json
+
+{
+  "action": "stop"
+}
+
+###
+
+### Reset VM
+POST {{api}}/vms/{{vmId}}/power
+Content-Type: application/json
+
+{
+  "action": "reset"
+}
+
+
+###
+# ============================================================
+# CONSOLE TICKET
+# ============================================================
+
+### Get WMKS console ticket (admin or owner)
+GET {{api}}/vms/{{vmId}}/console-ticket
+
+
+###
+# ============================================================
+# MANUAL CLONE (admin)
+# ============================================================
+
+### Clone a VM manually (one-off, records in DB)
+POST {{api}}/vms/clone
+Content-Type: application/json
+
+{
+  "sourceVmId": "vm-13",
+  "targetName": "manual-clone-test-01",
+  "labId": {{labId}},
+  "userId": {{userId}},
+  "groupId": {{groupId}},
+  "datastoreId": "datastore-1",
+  "folderId": "group-v82",
+  "resourcePoolId": "resgroup-1"
+}
+
+
+###
+# ============================================================
+# DELETE VM (admin — streams ndjson)
+# ============================================================
+
+### Delete VM — powers off + deletes from vCenter + removes from DB
+DELETE {{api}}/vms/{{vmId}}

@@ -1,0 +1,274 @@
+### VLab — VMware vCenter API Tests
+### Routes mirror vCenter REST API paths under /api/vmware/*
+### Run: npm run dev (port 8800)
+
+@base = http://localhost:8800
+@api  = {{base}}/api
+
+@adminEmail    = admin@vlab.com
+@adminPassword = admin123
+
+# Update these with real IDs from your vCenter
+@vmId       = vm-343
+@vmFolderId = group-v81
+@vmFolderDestId = group-v82
+@tagId      = urn:vmomi:InventoryServiceTag:ae8caf34-c332-457a-bcf8-4aaf57bbd3f3:GLOBAL
+@cisId      = urn:vmomi:InventoryServiceCategory:060b1650-5843-461a-93bd-766b9128a07f:GLOBAL
+
+
+###
+# ============================================================
+# AUTH
+# ============================================================
+
+### Login — admin
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+
+###
+# ============================================================
+# CONFIG (public — console proxy options)
+# ============================================================
+
+### Get console proxy configuration
+GET {{api}}/config
+
+
+###
+# ============================================================
+# vcenter — infrastructure resources
+# ============================================================
+
+### List clusters
+GET {{api}}/vmware/vcenter/cluster
+
+###
+
+### List datacenters
+GET {{api}}/vmware/vcenter/datacenter
+
+###
+
+### List datastores
+GET {{api}}/vmware/vcenter/datastore
+
+###
+
+### List folders — default type: VIRTUAL_MACHINE
+GET {{api}}/vmware/vcenter/folder
+
+###
+
+### List folders — type: DATASTORE
+GET {{api}}/vmware/vcenter/folder?type=DATASTORE
+
+###
+
+### List folders — type: HOST
+GET {{api}}/vmware/vcenter/folder?type=HOST
+
+###
+
+### List folders — type: NETWORK
+GET {{api}}/vmware/vcenter/folder?type=NETWORK
+
+###
+
+### List folders — type: DATACENTER
+GET {{api}}/vmware/vcenter/folder?type=DATACENTER
+
+###
+
+### List hosts
+GET {{api}}/vmware/vcenter/host
+
+###
+
+### List networks
+GET {{api}}/vmware/vcenter/network
+
+###
+
+### List resource pools
+GET {{api}}/vmware/vcenter/resource-pool
+
+###
+
+### List source VMs (configured source folder — lab template selection)
+GET {{api}}/vmware/source-vms
+
+
+###
+# ============================================================
+# vcenter/vm — VM CRUD
+# ============================================================
+
+### List all VMs
+GET {{api}}/vmware/vcenter/vm
+
+###
+
+### List VMs filtered by folder
+GET {{api}}/vmware/vcenter/vm?folders={{vmFolderId}}
+
+###
+
+### Get VM details
+GET {{api}}/vmware/vcenter/vm/{{vmId}}
+
+###
+
+### Clone VM
+POST {{api}}/vmware/vcenter/vm?action=clone
+Content-Type: application/json
+
+{
+  "name": "clone-test-01",
+  "placement": {
+    "folder": "{{vmFolderDestId}}"
+  },
+  "source": "{{vmId}}"
+}
+
+###
+
+### Delete VM (no DB record update — raw vCenter delete)
+DELETE {{api}}/vmware/vcenter/vm/vm-14
+
+
+###
+# ============================================================
+# vcenter/vm — power control
+# ============================================================
+
+### Get power state
+GET {{api}}/vmware/vcenter/vm/{{vmId}}/power
+
+###
+
+### Start VM
+POST {{api}}/vmware/vcenter/vm/{{vmId}}/power?action=start
+
+###
+
+### Stop VM
+POST {{api}}/vmware/vcenter/vm/{{vmId}}/power?action=stop
+
+###
+
+### Reset VM
+POST {{api}}/vmware/vcenter/vm/{{vmId}}/power?action=reset
+
+
+###
+# ============================================================
+# vcenter/vm — WMKS console ticket
+# ============================================================
+
+### Get WMKS console ticket
+POST {{api}}/vmware/vcenter/vm/{{vmId}}/console/tickets
+
+
+###
+# ============================================================
+# cis/tagging/category
+# ============================================================
+
+### List all tag categories
+GET {{api}}/vmware/cis/tagging/category
+
+###
+
+### Create tag category
+POST {{api}}/vmware/cis/tagging/category
+Content-Type: application/json
+
+{
+  "name": "vlab-groups2"
+}
+
+###
+
+### Get tag category by ID
+GET {{api}}/vmware/cis/tagging/category/{{cisId}}
+
+###
+
+### Delete tag category
+DELETE {{api}}/vmware/cis/tagging/category/{{cisId}}
+
+
+###
+# ============================================================
+# cis/tagging/tag
+# ============================================================
+
+### List all tags
+GET {{api}}/vmware/cis/tagging/tag
+
+###
+
+### Create tag
+POST {{api}}/vmware/cis/tagging/tag
+Content-Type: application/json
+
+{
+  "category_id": "{{cisId}}",
+  "name": "group-class-a11",
+  "description": "2025年A班"
+}
+
+###
+
+### Get tag by ID
+GET {{api}}/vmware/cis/tagging/tag/{{tagId}}
+
+###
+
+### Update tag (name/description)
+PATCH {{api}}/vmware/cis/tagging/tag/{{tagId}}
+Content-Type: application/json
+
+{
+  "name": "group-class-a11-updated",
+  "description": "2025年A班（更新）"
+}
+
+###
+
+### Delete tag
+DELETE {{api}}/vmware/cis/tagging/tag/{{tagId}}
+
+
+###
+# ============================================================
+# cis/tagging/tag-association
+# ============================================================
+
+### Attach tag to VM
+POST {{api}}/vmware/cis/tagging/tag-association?action=attach
+Content-Type: application/json
+
+{
+  "tag_id": "{{tagId}}",
+  "object_id": {
+    "id": "vm-1008",
+    "type": "VirtualMachine"
+  }
+}
+
+###
+
+### List VMs attached to tags
+POST {{api}}/vmware/cis/tagging/tag-association?action=list-attached-objects-on-tags
+Content-Type: application/json
+
+{
+  "tag_ids": ["{{tagId}}"]
+}

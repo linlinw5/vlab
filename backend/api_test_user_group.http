@@ -1,0 +1,218 @@
+### VLab — Users & Groups API Tests
+### Covers: auth, users, groups
+### Run: npm run dev (port 8800)
+
+@base = http://localhost:8800
+@api  = {{base}}/api
+
+@adminEmail    = admin@vlab.com
+@adminPassword = admin123
+
+@userEmail    = user@vlab.com
+@userPassword = 123456
+
+# Update these after creating records
+@userId  = 2
+@userId2 = 3
+@groupId = 2
+
+
+###
+# ============================================================
+# AUTH
+# ============================================================
+
+### Login — admin
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+###
+
+### Login — regular user
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}"
+}
+
+###
+
+### Whoami (requires cookie)
+GET {{api}}/auth/me
+
+###
+
+### Refresh token (uses refresh_token cookie, path restricted)
+POST {{api}}/auth/refresh
+
+###
+
+### Logout
+POST {{api}}/auth/logout
+
+###
+
+### Change own password (requires currentPassword + newPassword)
+PATCH {{api}}/auth/password
+Content-Type: application/json
+
+{
+  "currentPassword": "admin123",
+  "newPassword": "admin123"
+}
+
+
+###
+# ============================================================
+# GROUPS
+# ============================================================
+
+### List all groups (paginated)
+GET {{api}}/groups?page=1&pageSize=20
+
+###
+
+### Get group by ID
+GET {{api}}/groups/{{groupId}}
+
+###
+
+### Create group (auto-creates vCenter tag, streams ndjson)
+POST {{api}}/groups
+Content-Type: application/json
+
+{
+  "name": "Class-2025-A",
+  "description": "2025年A班"
+}
+
+###
+
+### Update group (auto-syncs vCenter tag name, streams ndjson)
+PUT {{api}}/groups/{{groupId}}
+Content-Type: application/json
+
+{
+  "name": "Class-2025-A-Updated",
+  "description": "2025年A班（更新）"
+}
+
+###
+
+### Delete group — streams ndjson (powers off + deletes VMs, removes VPN, removes tag, cleans DB)
+DELETE {{api}}/groups/{{groupId}}
+
+
+###
+# ============================================================
+# USERS
+# ============================================================
+
+### List users by group (paginated)
+GET {{api}}/users?groupId={{groupId}}&page=1&pageSize=20
+
+###
+
+### Get single user by ID
+GET {{api}}/users/{{userId}}
+
+###
+
+### Create user (manual, full control)
+POST {{api}}/users
+Content-Type: application/json
+
+{
+  "username": "testuser01",
+  "password": "123456",
+  "email": "testuser01@vlab.com",
+  "roleId": 3,
+  "groupId": {{groupId}}
+}
+
+###
+
+### Quick create single user — email auto-generated as username@groupName.local, clones assigned labs (streams ndjson)
+POST {{api}}/users/quick
+Content-Type: application/json
+
+{
+  "username": "student01",
+  "password": "123456",
+  "groupId": {{groupId}}
+}
+
+###
+
+### Batch create users — prefix+NN format (e.g. stu01~stu10), max 60, clones assigned labs (streams ndjson)
+POST {{api}}/users/batch
+Content-Type: application/json
+
+{
+  "prefix": "stu",
+  "password": "123456",
+  "groupId": {{groupId}},
+  "count": 5,
+  "start": 1
+}
+
+###
+
+### Update user
+PUT {{api}}/users/{{userId}}
+Content-Type: application/json
+
+{
+  "username": "testuser01_renamed",
+  "roleId": 3,
+  "groupId": {{groupId}}
+}
+
+###
+
+### Reset passwords (batch) — admin only
+POST {{api}}/users/password/reset
+Content-Type: application/json
+
+{
+  "userIds": [{{userId}}],
+  "newPassword": "newpass123"
+}
+
+###
+
+### Enable VPN for users (batch, streams ndjson — SSHes to Cisco ASA)
+POST {{api}}/users/vpn
+Content-Type: application/json
+
+{
+  "userIds": [{{userId}}, {{userId2}}],
+  "vpnPassword": "VpnPass@456"
+}
+
+###
+
+### Disable VPN for users (batch, streams ndjson — SSHes to Cisco ASA)
+DELETE {{api}}/users/vpn
+Content-Type: application/json
+
+{
+  "userIds": [{{userId}}, {{userId2}}]
+}
+
+###
+
+### Delete users (batch, streams ndjson — powers off + deletes VMs, removes VPN, cleans DB)
+DELETE {{api}}/users
+Content-Type: application/json
+
+{
+  "userIds": [{{userId}}]
+}
