@@ -46,6 +46,7 @@ export const config = {
     password: require_env("VCENTER_PASSWORD"),
     categoryName: process.env.VCENTER_CATEGORY_NAME || "vlab-category",
     defaultGroupName: process.env.DEFAULT_GROUP_NAME || "Administrators",
+    linkedClone: process.env.VCENTER_LINKED_CLONE === "true",
   },
 
   asa: {

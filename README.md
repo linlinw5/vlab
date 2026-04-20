@@ -155,6 +155,58 @@ Recommended production hardware/storage architecture:
 2. Shared storage: SAN or NFS.
 3. VAAI (vStorage APIs for Array Integration): to improve VM clone performance, enable VAAI. For NFS storage, install vendor-provided VAAI-NAS plugin (vSphere Installation Bundle, VIB) on ESXi. For SAN storage, VMware usually provides native support, and storage-side firmware declaration is sufficient.
 4. Preferred setup: NetApp + NFS with VAAI plugin on ESXi to enable FlexClone. In this mode, VM clone on NFS datastore does not copy VMDK data blocks directly. ESXi sends a CLONE_FILE request (VAAI-NAS primitive) to the array, and the array completes clone by pointer remap or snapshot reference, typically finishing in 1-2 seconds.
+5. No shared storage: if centralized storage is not available (e.g. standalone ESXi hosts with local disks only), use Linked Clone mode instead. See the [Linked Clone Mode](#linked-clone-mode-no-shared-storage) section below.
+
+---
+
+## Linked Clone Mode (No Shared Storage)
+
+For deployments where centralized shared storage (SAN / NFS) is not available — such as standalone ESXi hosts with local disks only — VLab supports **linked clone** as a fast alternative to full VM cloning.
+
+### How it works
+
+Linked clone is implemented via the vSphere SOAP API (the REST API does not expose this capability). Instead of copying the full VMDK, the clone gets a thin **delta disk** that references the source VM's snapshot as its read-only parent. Only changed blocks are written to the delta, so the clone is created almost instantly regardless of disk size.
+
+```
+Source VM snapshot (read-only parent)
+        │
+        ├── Clone A  (delta disk, a few MB)
+        ├── Clone B  (delta disk, a few MB)
+        └── Clone C  (delta disk, a few MB)
+```
+
+The clone is pinned to the same ESXi host and datastore as the source VM. The source VM must remain registered and its snapshot must not be deleted as long as any linked clone depends on it.
+
+### Enabling linked clone
+
+Set the following environment variable in `backend/.env`:
+
+```env
+VCENTER_LINKED_CLONE=true
+```
+
+When enabled, `cloneVM()` automatically:
+
+1. Checks whether the source VM has a snapshot.
+2. Creates a `base` snapshot automatically if none exists.
+3. Issues a `CloneVM_Task` SOAP call with `diskMoveType: createNewChildDiskBacking`.
+
+No frontend changes are required.
+
+### Performance comparison
+
+| Mode                         | Storage requirement            | Clone time                             |
+| ---------------------------- | ------------------------------ | -------------------------------------- |
+| Full clone (REST, no VAAI)   | Any                            | Minutes (copies all data blocks)       |
+| Full clone (REST, with VAAI) | SAN / NFS + VAAI plugin        | 1–2 seconds (array-offloaded)          |
+| **Linked clone (SOAP)**      | **Any (including local disk)** | **~3 seconds (delta descriptor only)** |
+
+### Limitations
+
+- All clones depend on the source VM's snapshot. Deleting the snapshot breaks all linked clones.
+- Delta disks grow over time as the student writes data; plan datastore capacity accordingly.
+- Linked clones are bound to a single ESXi host; live migration (vMotion) to another host is not supported without promoting to full copy first.
+- Requires vSphere 7.0 or newer with VMFS datastore.
 
 ---
 
@@ -353,7 +405,59 @@ docker/
 1. 服务器：建议使用 VMware ESXi 7.0 及以上版本。
 2. 集中存储：建议采用 SAN 或 NFS。
 3. VAAI（vStorage APIs for Array Integration）支持：为提升 VM 克隆速度，建议启用 VAAI。对于 NFS 存储，可安装厂商提供的 VAAI-NAS 插件（vSphere Installation Bundle，VIB）到 ESXi；对于 SAN 存储，VMware 通常已原生支持，只需存储阵列在固件层面声明支持即可，无需额外插件。
-4. 推荐方案：采用 NetApp + NFS，并在 ESXi 上安装 VAAI 插件以启用 FlexClone。这样在 NFS 数据存储上克隆 VM 时，ESXi 无需复制 VMDK 文件，而是向阵列发送 CLONE_FILE 请求（VAAI-NAS 原语）；阵列在文件系统层通过指针重映射或快照引用完成“克隆”，几乎不搬移数据块，通常可在 1-2 秒内完成。
+4. 推荐方案：采用 NetApp + NFS，并在 ESXi 上安装 VAAI 插件以启用 FlexClone。这样在 NFS 数据存储上克隆 VM 时，ESXi 无需复制 VMDK 文件，而是向阵列发送 CLONE_FILE 请求（VAAI-NAS 原语）；阵列在文件系统层通过指针重映射或快照引用完成”克隆”，几乎不搬移数据块，通常可在 1-2 秒内完成。
+5. 无共享存储：如果没有集中存储（例如仅使用本地磁盘的独立 ESXi 主机），请改用 Linked Clone 模式，详见下方 [Linked Clone 模式](#linked-clone-模式无共享存储) 小节。
+
+---
+
+## Linked Clone 模式（无共享存储）
+
+对于没有集中共享存储（SAN / NFS）的部署场景——例如仅使用本地磁盘的独立 ESXi 主机——VLab 支持 **Linked Clone（链接克隆）** 作为全量克隆的快速替代方案。
+
+### 工作原理
+
+Linked Clone 通过 vSphere SOAP API 实现（REST API 不提供该能力）。克隆不复制完整 VMDK，而是为克隆机创建一个薄 **delta 磁盘**，以源 VM 的快照作为只读父盘；写入操作只发生在 delta 盘上。因此，无论磁盘多大，克隆几乎瞬间完成。
+
+```
+源 VM 快照（只读父盘）
+        │
+        ├── 克隆 A  （delta 磁盘，仅几 MB）
+        ├── 克隆 B  （delta 磁盘，仅几 MB）
+        └── 克隆 C  （delta 磁盘，仅几 MB）
+```
+
+克隆机会被固定在与源 VM 相同的 ESXi 主机和数据存储上。只要有链接克隆依赖某个快照，源 VM 必须保持注册状态且该快照不能被删除。
+
+### 启用方式
+
+在 `backend/.env` 中设置以下环境变量：
+
+```env
+VCENTER_LINKED_CLONE=true
+```
+
+启用后，`cloneVM()` 会自动执行以下步骤：
+
+1. 检查源 VM 是否存在快照。
+2. 如不存在，自动创建一个名为 `base` 的快照。
+3. 发起 `CloneVM_Task` SOAP 调用，使用 `diskMoveType: createNewChildDiskBacking`。
+
+前端无需任何修改。
+
+### 性能对比
+
+| 模式                      | 存储要求               | 克隆耗时                           |
+| ------------------------- | ---------------------- | ---------------------------------- |
+| 全量克隆（REST，无 VAAI） | 任意                   | 数分钟（完整复制数据块）           |
+| 全量克隆（REST，有 VAAI） | SAN / NFS + VAAI 插件  | 1–2 秒（存储阵列卸载）             |
+| **Linked Clone（SOAP）**  | **任意（含本地磁盘）** | **约 3 秒（仅创建 delta 描述符）** |
+
+### 注意事项
+
+- 所有克隆机依赖源 VM 的快照，删除该快照会导致所有链接克隆无法启动。
+- Delta 磁盘会随学员写入操作持续增长，需合理规划数据存储容量。
+- 链接克隆绑定在单台 ESXi 主机上，在不升级为全量复制的前提下，不支持跨主机实时迁移（vMotion）。
+- 需要 vSphere 7.0 及以上版本，且使用 VMFS 数据存储。
 
 ---
 

@@ -1,4 +1,6 @@
 import VCenterClient from "./api-client";
+import { config } from "../../config";
+import { linkedCloneVM, listSnapshots, createSnapshot } from "./soap-operations";
 
 const client = new VCenterClient();
 
@@ -74,7 +76,19 @@ export async function waitForPowerOff(vmId: string, intervalMs = 2000, maxAttemp
   throw new Error(`VM ${vmId} did not power off within ${(intervalMs * maxAttempts) / 1000}s`);
 }
 
+async function ensureSnapshot(vmId: string): Promise<void> {
+  const snapshots = await listSnapshots(vmId);
+  if (snapshots.length === 0) {
+    await createSnapshot(vmId, "base", "auto-created for linked clone");
+  }
+}
+
 export async function cloneVM(cloneSpec: CloneSpec): Promise<{ success: boolean; clonedVmId: string }> {
+  if (config.vcenter.linkedClone) {
+    await ensureSnapshot(cloneSpec.source);
+    const clonedVmId = await linkedCloneVM(cloneSpec.source, cloneSpec.name, cloneSpec.placement.folder);
+    return { success: true, clonedVmId };
+  }
   const cloneClient = new VCenterClient(120_000);
   const clonedVmId = await cloneClient.post<string>("/api/vcenter/vm?action=clone", cloneSpec);
   return { success: true, clonedVmId };

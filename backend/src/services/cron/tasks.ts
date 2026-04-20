@@ -70,15 +70,15 @@ async function shutdownGroup1UserVMsForTest(): Promise<void> {
 taskManager.registerTask("shutdown-vms", "0 22 * * *", shutdownAllUserVMs, "shutdown all user VMs at 10 PM daily", {
   timezone: "Asia/Shanghai",
 });
-taskManager.registerTask(
-  "shutdown-group1-vms-test",
-  "* * * * *",
-  shutdownGroup1UserVMsForTest,
-  "test only: shutdown group1 user VMs every minute",
-  {
-    timezone: "Asia/Shanghai",
-    enabled: false,
-  },
-);
+// taskManager.registerTask(
+//   "shutdown-group1-vms-test",
+//   "* * * * *",
+//   shutdownGroup1UserVMsForTest,
+//   "test only: shutdown group1 user VMs every minute",
+//   {
+//     timezone: "Asia/Shanghai",
+//     enabled: false,
+//   },
+// );
 
 export default taskManager;

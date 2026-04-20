@@ -1,0 +1,76 @@
+### VLab — VMware SOAP API Tests
+### Covers: snapshot (list / create / revert / delete) and linked clone
+### Run: npm run dev (port 8800)
+
+@base = http://localhost:8800
+@api  = {{base}}/api
+
+@adminEmail    = admin@vlab.com
+@adminPassword = admin123
+
+# Update these with real IDs from your vCenter
+# vmId:     source VM MoRef  — get from GET /api/vmware/vcenter/vm
+# folderId: target folder    — get from GET /api/vmware/vcenter/folder?type=VIRTUAL_MACHINE
+@vmId     = vm-427
+@folderId = group-v82
+
+
+###
+# ============================================================
+# AUTH
+# ============================================================
+
+### Login — admin
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+
+###
+# ============================================================
+# SNAPSHOTS
+# ============================================================
+
+### List snapshots of a VM
+GET {{api}}/vmware-soap/vcenter/vm/{{vmId}}/snapshots
+
+###
+
+### Create snapshot
+# 执行 linked clone 前先用这个为模板 VM 建快照
+POST {{api}}/vmware-soap/vcenter/vm/{{vmId}}/snapshots
+Content-Type: application/json
+
+{
+  "name": "base-snapshot",
+  "description": "linked clone base"
+}
+
+###
+
+### Revert to current snapshot
+POST {{api}}/vmware-soap/vcenter/vm/{{vmId}}/snapshots/revert
+
+###
+
+### Remove all snapshots
+DELETE {{api}}/vmware-soap/vcenter/vm/{{vmId}}/snapshots
+
+
+###
+# ============================================================
+# LINKED CLONE
+# ============================================================
+
+### Linked clone — 模板 VM 必须已有快照
+POST {{api}}/vmware-soap/vcenter/vm/{{vmId}}/clone
+Content-Type: application/json
+
+{
+  "name": "student-vm-test-01",
+  "folderId": "{{folderId}}"
+}

@@ -1,0 +1,158 @@
+vlab-vpn# sh run
+: Saved
+: 
+: Hardware:   ASAv, 2048 MB RAM, CPU Xeon 5500 series 2095 MHz
+:
+ASA Version 9.2(4) 
+!
+hostname vlab-vpn
+enable password l0hQPPOSOLE/JXW encrypted
+names
+ip local pool webvpn-addr-pool 198.18.1.1-198.18.1.254
+!
+interface GigabitEthernet0/0
+ nameif outside
+ security-level 0
+ ip address 192.168.50.6 255.255.255.0 
+!
+interface GigabitEthernet0/1
+ nameif inside
+ security-level 100
+ ip address 192.168.51.6 255.255.255.0 
+!
+access-list M-split-tunnel-acl extended permit ip 198.18.0.0 255.255.0.0 any 
+!
+route outside 0.0.0.0 0.0.0.0 192.168.50.254 1
+route inside 198.18.0.0 255.255.0.0 192.168.51.254 1
+!
+aaa authentication telnet console LOCAL 
+aaa authentication ssh console LOCAL 
+!
+crypto ipsec ikev2 ipsec-proposal DES
+ protocol esp encryption des
+ protocol esp integrity sha-1 md5
+crypto ipsec ikev2 ipsec-proposal 3DES
+ protocol esp encryption 3des
+ protocol esp integrity sha-1 md5
+crypto ipsec ikev2 ipsec-proposal AES
+ protocol esp encryption aes
+ protocol esp integrity sha-1 md5
+crypto ipsec ikev2 ipsec-proposal AES192
+ protocol esp encryption aes-192
+ protocol esp integrity sha-1 md5
+crypto ipsec ikev2 ipsec-proposal AES256
+ protocol esp encryption aes-256
+ protocol esp integrity sha-256
+!
+crypto dynamic-map dymap1 10 set ikev2 ipsec-proposal AES256 AES192 AES 3DES DES
+crypto dynamic-map dymap1 10 set reverse-route
+crypto map cisco 100 ipsec-isakmp dynamic dymap1
+crypto map cisco interface outside
+!
+crypto ca trustpoint asaself
+ enrollment self
+ subject-name cn=vlabvpn.abc.com
+ serial-number
+ crl configure
+!
+crypto ca trustpool policy
+crypto ca certificate chain asaself
+ certificate 86c61168
+    3082020d 30820176 a0030201 02020486 c6116830 0d06092a 864886f7 0d010105 
+    0500304b 311c301a 06035504 03131376 6c616276 706e2e6a 7362632e 6564752e 
+    ......
+    4d9cb25d 1870d602 5c0e7d42 b06c316f 870a0d3d 20760781 44d9a8a6 669b04e9 
+    400a8db1 a4a53f98 58b2c099 f172067e 20
+  quit  
+!      
+crypto ikev2 policy 1
+ encryption aes-gcm-256 aes-gcm-192 aes-gcm
+ integrity null
+ group 21
+ prf sha256
+ lifetime seconds 86400
+crypto ikev2 policy 10
+ encryption aes-256 aes-192 aes 3des des
+ integrity sha512 sha384 sha256 sha md5
+ group 21 20 19 24 14
+ prf sha
+ lifetime seconds 86400
+crypto ikev2 policy 40
+ encryption des
+ integrity sha
+ group 14
+ prf sha
+ lifetime seconds 86400
+!
+crypto ikev2 enable outside client-services port 8443
+crypto ikev2 remote-access trustpoint asaself
+!
+telnet 0.0.0.0 0.0.0.0 outside
+ssh 0.0.0.0 0.0.0.0 outside
+ssh key-exchange group dh-group14-sha1
+!
+ssl encryption aes256-sha1 aes128-sha1 dhe-aes256-sha1 dhe-aes128-sha1 3des-sha1
+!
+webvpn
+ port 8443
+ enable outside
+ no anyconnect-essentials
+ anyconnect image disk0:/cisco-secure-client-win-5.1.9.113-webdeploy-k9.pkg 1
+ anyconnect image disk0:/cisco-secure-client-macos-5.1.9.113-webdeploy-k9.pkg 2
+ anyconnect profiles ac disk0:/ac.xml
+ anyconnect enable
+ tunnel-group-list enable
+!
+group-policy stu-policy1 internal
+group-policy stu-policy1 attributes
+ dns-server value 198.18.255.1
+ vpn-tunnel-protocol ikev2 ssl-client 
+ split-tunnel-policy tunnelspecified
+ split-tunnel-network-list value M-split-tunnel-acl
+ address-pools value webvpn-addr-pool
+ webvpn
+  anyconnect profiles value ac type user
+!
+username admin password 5UXXXVRfCSSAW encrypted
+!
+tunnel-group stu-group1 type remote-access
+tunnel-group stu-group1 general-attributes
+ default-group-policy stu-policy1
+tunnel-group stu-group1 webvpn-attributes
+ group-alias stu-group1 enable
+!
+: end
+
+
+
+vlab-vpn# show disk
+--#--  --length--  -----date/time------  path
+    6  4096        Jan 11 2019 10:38:54  log
+    7  4096        Jan 11 2019 10:40:06  coredumpinfo
+    8  59          Jan 11 2019 10:40:06  coredumpinfo/coredump.cfg
+   79  34143680    Feb 28 2019 12:40:22  asdm-7101.bin
+   80  165260300   Apr 30 2025 07:20:14  cisco-secure-client-macos-5.1.9.113-webdeploy-k9.pkg
+   81  151206695   Apr 30 2025 07:20:48  cisco-secure-client-win-5.1.9.113-webdeploy-k9.pkg
+   82  608         Apr 30 2025 09:02:14  ac.xml
+
+8571076608 bytes total (8208957440 bytes free)
+
+
+
+vlab-vpn# more disk0:ac.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<AnyConnectProfile xmlns="http://schemas.xmlsoap.org/encoding/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schemas.xmlsoap.org/encoding/ AnyConnectProfile.xsd">
+        <ServerList>
+                <HostEntry>
+                        <HostName>vlab-ssl-vpn</HostName>
+                        <HostAddress>vlab.abc.com:8443</HostAddress>
+                </HostEntry>
+        </ServerList>
+        <ServerList>
+                <HostEntry>
+                        <HostName>vlab-ikev2-vpn</HostName>
+                        <HostAddress>vlab.abc.com</HostAddress>
+                        <PrimaryProtocol>IPsec</PrimaryProtocol>
+                </HostEntry>
+        </ServerList>
+</AnyConnectProfile>
